@@ -88,7 +88,53 @@ describe("staticalize", () => {
     );
   });
 
-  it("fetches assets from downloaded html pages", () => {
+  it("fetches assets from downloaded html pages", async () => {
+    app.get("/spa", (c) =>
+      c.html(`
+<html>
+  <head>
+    <link rel="stylesheet" href="assets/styles.css"/>
+  </head>
+  <body>
+    <script src="assets/script.js">
+  </body>
+</html>
+`));
+
+    app.get(
+      "/assets/styles.css",
+      (c) =>
+        c.text("body { font-size: 100px; }", 200, {
+          "Content-Type": "text/css",
+        }),
+    );
+    app.get(
+      "/assets/script.js",
+      (c) =>
+        c.text("console.log('hello world');", 200, {
+          "Content-Type": "text/javascript",
+        }),
+    );
+
+    await staticalize({
+      base: new URL("htts:/fs.com"),
+      host,
+      dir: "test/dist",
+      sitemap: urlset([
+	url(
+	  loc("/spa")
+	)
+      ])
+    })
+
+    await expect(exists("test/dist/assets/styles.css")).resolves.toEqual(true);
+    await expect(content("test/dist/assets/styles.css")).resolves.toEqual(
+      "body { font-size: 100px; }",
+    );
+    await expect(exists("test/dist/assets/script.js")).resolves.toEqual(true);
+    await expect(content("test/dist/assets/script.js")).resolves.toEqual(
+      "console.log('hello world');",
+    );
   });
 });
 

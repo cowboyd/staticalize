@@ -2,6 +2,7 @@
   "version": "3",
   "packages": {
     "specifiers": {
+      "jsr:@b-fuze/deno-dom": "jsr:@b-fuze/deno-dom@0.1.47",
       "jsr:@b-fuze/deno-dom@0.1.47": "jsr:@b-fuze/deno-dom@0.1.47",
       "jsr:@hono/hono": "jsr:@hono/hono@4.5.8",
       "jsr:@libs/typing@2": "jsr:@libs/typing@2.8.1",
@@ -91,6 +92,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@b-fuze/deno-dom",
       "jsr:@libs/xml",
       "jsr:@std/assert@1",
       "jsr:@std/cli@1",

@@ -8,6 +8,7 @@
     "@std/testing": "jsr:@std/testing@^1.0.0",
     "@std/fs": "jsr:@std/fs",
     "@libs/xml": "jsr:@libs/xml",
+    "deno-dom": "jsr:@b-fuze/deno-dom",
     "effection": "https://deno.land/x/effection@3.0.3/mod.ts"
   },
   "lint": {
