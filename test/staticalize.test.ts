@@ -11,15 +11,11 @@ describe("staticalize", () => {
   let server: ReturnType<typeof Deno.serve>;
   let address: Deno.NetAddr;
   let host: URL;
+  let app: Hono;
 
   beforeEach(async () => {
     await emptyDir("test/dist");
-    let app = new Hono();
-    app.get("/", (c) => c.html("<h1>Index</h1>"));
-    app.get("/about", (c) => c.html("<h1>About</h1>"));
-    app.get("/contact", (c) => c.html("<h1>Contact</h1>"));
-    app.get("/deeply/nested/page", (c) => c.html("<h1>Nested</h1>"));
-
+    app = new Hono();
     let listening = Promise.withResolvers<Deno.NetAddr>();
 
     server = Deno.serve({
@@ -35,6 +31,9 @@ describe("staticalize", () => {
   });
 
   it("generates a site from static urls", async () => {
+    app.get("/", (c) => c.html("<h1>Index</h1>"));
+    app.get("/about", (c) => c.html("<h1>About</h1>"));
+    app.get("/contact", (c) => c.html("<h1>Contact</h1>"));
     await staticalize({
       host,
       base: new URL("https://frontside.com"),
@@ -72,6 +71,8 @@ describe("staticalize", () => {
   });
 
   it("handles nested subdirectories", async () => {
+    app.get("/deeply/nested/page", (c) => c.html("<h1>Nested</h1>"));
+
     await staticalize({
       base: new URL("https://fs.com"),
       host,

@@ -66,7 +66,11 @@ export function staticalize(options: StaticalizeOptions): Promise<void> {
       }),
     );
 
-    yield* all(tasks);
+    let task = tasks.pop();
+    while (task) {
+      yield* task;
+      task = tasks.pop();
+    }
   });
 }
 
