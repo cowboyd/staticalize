@@ -2,7 +2,6 @@ import {
   call,
   Operation,
   resource,
-  run,
   spawn,
   Task,
   useAbortSignal,
@@ -25,40 +24,38 @@ export interface StaticalizeSummary {
   durationMS: number;
 }
 
-export function staticalize(options: StaticalizeOptions): Promise<void> {
+export function* staticalize(options: StaticalizeOptions): Operation<void> {
   let { sitemap, host, base, dir } = options;
-  return run(function* () {
-    let tasks: Task<void>[] = [];
+  let tasks: Task<void>[] = [];
 
-    let downloader = yield* useDownloader({ host, outdir: dir });
+  let downloader = yield* useDownloader({ host, outdir: dir });
 
-    yield* call(() => ensureDir(dir));
+  yield* call(() => ensureDir(dir));
 
-    for (let spec of sitemap.urls) {
-      downloader.download(spec.loc);
-    }
+  for (let spec of sitemap.urls) {
+    downloader.download(spec.loc);
+  }
 
-    tasks.push(
-      yield* spawn(function* () {
-        let xml = stringify({
-          urlset: {
-            "@xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
-            "urls": [...sitemap.urls].map((url) => ({
-              loc: { "#text": contextualize(url.loc, base).toString() },
-            })),
-          },
-        });
-        yield* call(() =>
-          Deno.writeFile(
-            join(dir, "sitemap.xml"),
-            new TextEncoder().encode(xml),
-          )
-        );
-      }),
-    );
+  tasks.push(
+    yield* spawn(function* () {
+      let xml = stringify({
+        urlset: {
+          "@xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
+          "urls": [...sitemap.urls].map((url) => ({
+            loc: { "#text": contextualize(url.loc, base).toString() },
+          })),
+        },
+      });
+      yield* call(() =>
+        Deno.writeFile(
+          join(dir, "sitemap.xml"),
+          new TextEncoder().encode(xml),
+        )
+      );
+    }),
+  );
 
-    yield* downloader;
-  });
+  yield* downloader;
 }
 
 function contextualize(location: string, base: URL): URL {

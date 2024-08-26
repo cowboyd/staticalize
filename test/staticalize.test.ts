@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "https://deno.land/x/expect@v0.3.0/mod.ts";
 
-import { loc, staticalize, url, urlset } from "../mod.ts";
+import { loc, staticalize as $staticalize, url, urlset } from "../mod.ts";
 import { emptyDir, exists } from "@std/fs";
 
 import { Hono } from "jsr:@hono/hono";
 import { parse } from "@libs/xml";
+import { run, Task } from "effection";
 
 describe("staticalize", () => {
   let server: ReturnType<typeof Deno.serve>;
@@ -198,4 +199,8 @@ async function content(path: string): Promise<string> {
   await expect(exists(path)).resolves.toEqual(true);
   let bytes = await Deno.readFile(path);
   return new TextDecoder().decode(bytes);
+}
+
+function staticalize(...options: Parameters<typeof $staticalize>): Task<void> {
+  return run(() => $staticalize(...options));
 }
