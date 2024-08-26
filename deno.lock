@@ -10,7 +10,10 @@
       "jsr:@std/fs": "jsr:@std/fs@1.0.1",
       "jsr:@std/path": "jsr:@std/path@1.0.2",
       "jsr:@std/path@^1.0.2": "jsr:@std/path@1.0.2",
-      "jsr:@std/testing@^1.0.0": "jsr:@std/testing@1.0.0"
+      "jsr:@std/testing@^1.0.0": "jsr:@std/testing@1.0.0",
+      "npm:zod": "npm:zod@3.23.8",
+      "npm:zod-opts": "npm:zod-opts@0.1.8",
+      "npm:zx": "npm:zx@8.1.4"
     },
     "jsr": {
       "@b-fuze/deno-dom@0.1.47": {
@@ -42,6 +45,52 @@
       },
       "@std/testing@1.0.0": {
         "integrity": "27cfc06392c69c2acffe54e6d0bcb5f961cf193f519255372bd4fff1481bfef8"
+      }
+    },
+    "npm": {
+      "@types/fs-extra@11.0.4": {
+        "integrity": "sha512-yTbItCNreRooED33qjunPthRcSjERP1r4MqCZc7wv0u2sUkzTFp45tgUfS5+r7FrZPdmCCNflLhVSP/o+SemsQ==",
+        "dependencies": {
+          "@types/jsonfile": "@types/jsonfile@6.1.4",
+          "@types/node": "@types/node@18.16.19"
+        }
+      },
+      "@types/jsonfile@6.1.4": {
+        "integrity": "sha512-D5qGUYwjvnNNextdU59/+fI+spnwtTFmyQP0h+PfIOSkNfpU6AOICUOkm4i0OnSk+NyjdPJrxCDro0sJsWlRpQ==",
+        "dependencies": {
+          "@types/node": "@types/node@18.16.19"
+        }
+      },
+      "@types/node@18.16.19": {
+        "integrity": "sha512-IXl7o+R9iti9eBW4Wg2hx1xQDig183jj7YLn8F7udNceyfkbn1ZxmzZXuak20gR40D7pIkIY1kYGx5VIGbaHKA==",
+        "dependencies": {}
+      },
+      "@types/node@20.12.7": {
+        "integrity": "sha512-wq0cICSkRLVaf3UGLMGItu/PtdY7oaXaI/RVU+xliKVOtRna3PRY57ZDfztpDL0n11vfymMUnXv8QwYCO7L1wg==",
+        "dependencies": {
+          "undici-types": "undici-types@5.26.5"
+        }
+      },
+      "undici-types@5.26.5": {
+        "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==",
+        "dependencies": {}
+      },
+      "zod-opts@0.1.8": {
+        "integrity": "sha512-YZhdEcIL3D2W9fXCCf/UBgrBS90c8w25RTteh5GihGIZzadYr/qIFxyM2L98zHUkZ2S8MMxwn3ny8fzPNnvPlg==",
+        "dependencies": {
+          "zod": "zod@3.23.8"
+        }
+      },
+      "zod@3.23.8": {
+        "integrity": "sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==",
+        "dependencies": {}
+      },
+      "zx@8.1.4": {
+        "integrity": "sha512-QFDYYpnzdpRiJ3dL2102Cw26FpXpWshW4QLTGxiYfIcwdAqg084jRCkK/kuP/NOSkxOjydRwNFG81qzA5r1a6w==",
+        "dependencies": {
+          "@types/fs-extra": "@types/fs-extra@11.0.4",
+          "@types/node": "@types/node@20.12.7"
+        }
       }
     }
   },
