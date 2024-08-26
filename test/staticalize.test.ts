@@ -121,11 +121,11 @@ describe("staticalize", () => {
       host,
       dir: "test/dist",
       sitemap: urlset([
-	url(
-	  loc("/spa")
-	)
-      ])
-    })
+        url(
+          loc("/spa"),
+        ),
+      ]),
+    });
 
     await expect(exists("test/dist/assets/styles.css")).resolves.toEqual(true);
     await expect(content("test/dist/assets/styles.css")).resolves.toEqual(
@@ -135,6 +135,62 @@ describe("staticalize", () => {
     await expect(content("test/dist/assets/script.js")).resolves.toEqual(
       "console.log('hello world');",
     );
+  });
+
+  it("does not download assets that are in a different domain", async () => {
+    app.get("/spa", (c) =>
+      c.html(`
+<html>
+  <head>
+    <link rel="stylesheet" href="https://google.com/cdn/mui.css"/>
+  </head>
+</html>
+`));
+    await staticalize({
+      base: new URL("htts:/fs.com"),
+      host,
+      dir: "test/dist",
+      sitemap: urlset([
+        url(
+          loc("/spa"),
+        ),
+      ]),
+    });
+
+    await expect(exists("test/dist/cdn/mui.css")).resolves.toEqual(false);
+  });
+
+  it("downloads absolute assets that have the same host as the host that we're scraping", async () => {
+    let styles = new URL(host);
+    styles.pathname = "assets/styles.css";
+    app.get("/spa", (c) =>
+      c.html(`
+<html>
+  <head>
+    <link rel="stylesheet" href="${styles.toString()}"/>
+  </head>
+</html>
+`));
+
+    app.get(
+      "/assets/styles.css",
+      (c) =>
+        c.text("body { font-size: 100px; }", 200, {
+          "Content-Type": "text/css",
+        }),
+    );
+    await staticalize({
+      base: new URL("htts:/fs.com"),
+      host,
+      dir: "test/dist",
+      sitemap: urlset([
+        url(
+          loc("/spa"),
+        ),
+      ]),
+    });
+
+    await expect(exists("test/dist/assets/styles.css")).resolves.toEqual(true);
   });
 });
 

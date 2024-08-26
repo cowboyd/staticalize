@@ -43,7 +43,7 @@ export function staticalize(options: StaticalizeOptions): Promise<void> {
           urlset: {
             "@xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
             "urls": [...sitemap.urls].map((url) => ({
-              loc: { "#text": contextualize(url.loc, base) },
+              loc: { "#text": contextualize(url.loc, base).toString() },
             })),
           },
         });
@@ -60,13 +60,13 @@ export function staticalize(options: StaticalizeOptions): Promise<void> {
   });
 }
 
-function contextualize(pathname: string, base: URL): string {
-  if (pathname.match(/^\w+:/)) {
-    return pathname;
+function contextualize(location: string, base: URL): URL {
+  if (location.match(/^\w+:/)) {
+    return new URL(location);
   } else {
     let url = new URL(base.toString());
-    url.pathname = pathname;
-    return url.toString();
+    url.pathname = location;
+    return url;
   }
 }
 
@@ -88,47 +88,51 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
 
     let downloader: Downloader = {
       download(loc) {
-	let source = new URL(host.toString());
-	source.pathname = loc;
-	let pathname = loc.trim() === "/" ? "index.html" : loc.trim();
-        let destpath = normalize(join(outdir, pathname));
+	let source = contextualize(loc, host);
+	if (source.host !== host.host) {
+	  return;
+	}
+	
+        let destpath = normalize(join(outdir, source.pathname === "/" ? "/index.html" : source.pathname));
         tasks.push(
           scope.run(function* () {
             let response = yield* call(() => fetch(source.toString()));
-              if (response.ok) {
-		if (response.headers.get("Content-Type")?.includes("html")) {
-		  let content = yield* call(() => response.text());
-		  let document = new DOMParser().parseFromString(content, "text/html");
-		  let links = document.querySelectorAll("link[href]");
-		  for (let node of links) {
-		    let link = node as Element;
-		    let href = link.getAttribute("href");
-		    downloader.download(href!);
-		  }
+            if (response.ok) {
+              if (response.headers.get("Content-Type")?.includes("html")) {
+                let content = yield* call(() => response.text());
+                let document = new DOMParser().parseFromString(
+                  content,
+                  "text/html",
+                );
+                let links = document.querySelectorAll("link[href]");
+                for (let node of links) {
+                  let link = node as Element;
+                  let href = link.getAttribute("href");
+                  downloader.download(href!);
+                }
 
-		  let assets = document.querySelectorAll("[src]");
-		  for (let node of assets) {
-		    let element = node as Element;
-		    let src = element.getAttribute("src")!;
-		    downloader.download(src);
-		  }
-		  
-		  yield* call(async () => {
-                    let destdir = dirname(destpath);
-                    await ensureDir(destdir);
-                    await Deno.writeTextFile(destpath, content);		    
-		  });
-		} else {
-                  yield* call(async () => {
-                    let destdir = dirname(destpath);
-                    await ensureDir(destdir);
-                    await Deno.writeFile(destpath, response.body!);
-                  });		  
-		}
+                let assets = document.querySelectorAll("[src]");
+                for (let node of assets) {
+                  let element = node as Element;
+                  let src = element.getAttribute("src")!;
+                  downloader.download(src);
+                }
 
+                yield* call(async () => {
+                  let destdir = dirname(destpath);
+                  await ensureDir(destdir);
+                  await Deno.writeTextFile(destpath, content);
+                });
               } else {
-                throw new Error(`${response.status} ${response.statusText}`);
+                yield* call(async () => {
+                  let destdir = dirname(destpath);
+                  await ensureDir(destdir);
+                  await Deno.writeFile(destpath, response.body!); 
+               });
               }
+            } else {
+              throw new Error(`GET ${source} ${response.status} ${response.statusText}`);
+            }
           }),
         );
       },
