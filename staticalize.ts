@@ -5,6 +5,7 @@ import {
   run,
   spawn,
   Task,
+  useAbortSignal,
   useScope,
 } from "effection";
 import { Sitemap } from "./types.ts";
@@ -86,17 +87,26 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
 
     let scope = yield* useScope();
 
+    let signal = yield* useAbortSignal();
+
     let downloader: Downloader = {
       download(loc) {
-	let source = contextualize(loc, host);
-	if (source.host !== host.host) {
-	  return;
-	}
-	
-        let destpath = normalize(join(outdir, source.pathname === "/" ? "/index.html" : source.pathname));
+        let source = contextualize(loc, host);
+        if (source.host !== host.host) {
+          return;
+        }
+
+        let destpath = normalize(
+          join(
+            outdir,
+            source.pathname === "/" ? "/index.html" : source.pathname,
+          ),
+        );
         tasks.push(
           scope.run(function* () {
-            let response = yield* call(() => fetch(source.toString()));
+            let response = yield* call(() =>
+              fetch(source.toString(), { signal })
+            );
             if (response.ok) {
               if (response.headers.get("Content-Type")?.includes("html")) {
                 let content = yield* call(() => response.text());
@@ -127,11 +137,13 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
                 yield* call(async () => {
                   let destdir = dirname(destpath);
                   await ensureDir(destdir);
-                  await Deno.writeFile(destpath, response.body!); 
-               });
+                  await Deno.writeFile(destpath, response.body!);
+                });
               }
             } else {
-              throw new Error(`GET ${source} ${response.status} ${response.statusText}`);
+              throw new Error(
+                `GET ${source} ${response.status} ${response.statusText}`,
+              );
             }
           }),
         );
