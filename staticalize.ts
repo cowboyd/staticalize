@@ -78,6 +78,7 @@ interface DownloaderOptions {
 }
 
 function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
+  let seen = new Map<string, boolean>();
   return resource(function* (provide) {
     let { host, outdir } = opts;
     let tasks: Task<void>[] = [];
@@ -88,6 +89,13 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
 
     let downloader: Downloader = {
       download(loc) {
+	if (seen.get(loc)) {
+	  return;
+	}
+	seen.set(loc, true);
+	if (loc.startsWith("//")) {
+	  return;
+	}
         let source = contextualize(loc, host);
         if (source.host !== host.host) {
           return;
