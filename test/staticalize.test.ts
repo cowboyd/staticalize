@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
 import { expect } from "https://deno.land/x/expect@v0.3.0/mod.ts";
 
-import { loc, staticalize as $staticalize, url, urlset } from "../mod.ts";
+import { staticalize as $staticalize } from "../mod.ts";
 import { emptyDir, exists } from "@std/fs";
 
 import { Hono } from "jsr:@hono/hono";
@@ -14,6 +14,9 @@ describe("staticalize", () => {
   let host: URL;
   let app: Hono;
 
+  // deno-lint-ignore no-explicit-any
+  let sitemap: (paths: string[]) => any;
+
   beforeEach(async () => {
     await emptyDir("test/dist");
     app = new Hono();
@@ -25,6 +28,17 @@ describe("staticalize", () => {
 
     address = await listening.promise;
     host = new URL(`http://${address.hostname}:${address.port}`);
+    // deno-lint-ignore no-explicit-any
+    sitemap = (paths) => ["/sitemap.xml", (c: any) =>
+      c.text(
+        `
+<urlset>
+  ${paths.map((path) => `<url><loc>${new URL(path, host)}</loc></url>`)}
+</urlset>
+`,
+        200,
+        { "Content-Type": "application/xml" },
+      )];
   });
 
   afterEach(async () => {
@@ -35,20 +49,11 @@ describe("staticalize", () => {
     app.get("/", (c) => c.html("<h1>Index</h1>"));
     app.get("/about", (c) => c.html("<h1>About</h1>"));
     app.get("/contact", (c) => c.html("<h1>Contact</h1>"));
+    app.get(...sitemap(["/", "/about", "/contact"]));
+
     await staticalize({
       host,
       base: new URL("https://frontside.com"),
-      sitemap: urlset([
-        url(
-          loc("/"),
-        ),
-        url(
-          loc("/about"),
-        ),
-        url(
-          loc("/contact"),
-        ),
-      ]),
       dir: "test/dist",
     });
 
@@ -73,16 +78,12 @@ describe("staticalize", () => {
 
   it("handles nested subdirectories", async () => {
     app.get("/deeply/nested/page", (c) => c.html("<h1>Nested</h1>"));
+    app.get(...sitemap(["/deeply/nested/page"]));
 
     await staticalize({
       base: new URL("https://fs.com"),
       host,
       dir: "test/dist",
-      sitemap: urlset([
-        url(
-          loc("/deeply/nested/page"),
-        ),
-      ]),
     });
     expect(content("test/dist/deeply/nested/page")).resolves.toEqual(
       "<h1>Nested</h1>",
@@ -117,15 +118,12 @@ describe("staticalize", () => {
         }),
     );
 
+    app.get(...sitemap(["/spa"]));
+
     await staticalize({
       base: new URL("htts:/fs.com"),
       host,
       dir: "test/dist",
-      sitemap: urlset([
-        url(
-          loc("/spa"),
-        ),
-      ]),
     });
 
     await expect(exists("test/dist/assets/styles.css")).resolves.toEqual(true);
@@ -147,15 +145,11 @@ describe("staticalize", () => {
   </head>
 </html>
 `));
+    app.get(...sitemap(["/spa"]));
     await staticalize({
       base: new URL("htts:/fs.com"),
       host,
       dir: "test/dist",
-      sitemap: urlset([
-        url(
-          loc("/spa"),
-        ),
-      ]),
     });
 
     await expect(exists("test/dist/cdn/mui.css")).resolves.toEqual(false);
@@ -180,15 +174,13 @@ describe("staticalize", () => {
           "Content-Type": "text/css",
         }),
     );
+
+    app.get(...sitemap(["/spa"]));
+
     await staticalize({
       base: new URL("htts:/fs.com"),
       host,
       dir: "test/dist",
-      sitemap: urlset([
-        url(
-          loc("/spa"),
-        ),
-      ]),
     });
 
     await expect(exists("test/dist/assets/styles.css")).resolves.toEqual(true);

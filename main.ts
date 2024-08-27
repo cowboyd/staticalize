@@ -1,9 +1,6 @@
 import { main } from "effection";
 import { parser } from "npm:zod-opts";
 import { z } from "npm:zod";
-import { exec } from "./zx.ts";
-import type { Sitemap } from "./types.ts";
-import { parse } from "@libs/xml/parse";
 import { staticalize } from "./staticalize.ts";
 
 const url = () =>
@@ -35,47 +32,12 @@ await main(function* (args) {
         description:
           "Base URL of the public website. E.g. http://frontside.com",
       },
-      "eval-sitemap": {
-        type: z.string(),
-        alias: "e",
-        description: "Command that when executed prints sitemap.xml to stdout",
-      },
     })
     .parse(args);
-
-  let sitemap = parseSitemap(
-    (yield* exec(options["eval-sitemap"])).stdout.trim(),
-  );
 
   yield* staticalize({
     base: new URL(options["base-url"]),
     host: new URL(options.site),
-    sitemap,
     dir: options.outputdir,
   });
 });
-
-function parseSitemap(buffer: string): Sitemap {
-  let SitemapURL = z.object({
-    loc: z.string(),
-  });
-
-  let SitemapXML = z.object({
-    urlset: z.object({
-      urls: z.union([SitemapURL, z.array(SitemapURL)]),
-    }),
-  });
-
-  let xml = parse(buffer, {
-    mode: "xml",
-    flatten: { empty: false, text: true, attributes: false },
-  });
-
-  let sitemap = SitemapXML.parse(xml);
-
-  return {
-    urls: Array.isArray(sitemap.urlset.urls)
-      ? sitemap.urlset.urls
-      : [sitemap.urlset.urls],
-  };
-}

@@ -7,16 +7,16 @@ import {
   useAbortSignal,
   useScope,
 } from "effection";
-import { Sitemap } from "./types.ts";
 import { dirname, join, normalize } from "jsr:@std/path";
 import { ensureDir } from "@std/fs/ensure-dir";
 import { stringify } from "@libs/xml/stringify";
 import { DOMParser, Element } from "deno-dom";
+import { parse } from "@libs/xml/parse";
+import z from "npm:zod";
 
 export interface StaticalizeOptions {
   host: URL;
   base: URL;
-  sitemap: Sitemap;
   dir: string;
 }
 
@@ -25,47 +25,61 @@ export interface StaticalizeSummary {
 }
 
 export function* staticalize(options: StaticalizeOptions): Operation<void> {
-  let { sitemap, host, base, dir } = options;
-  let tasks: Task<void>[] = [];
+  let { host, base, dir } = options;
+
+  let signal = yield* useAbortSignal();
+
+  let urls: SitemapURL[] = yield* call(async () => {
+    let url = new URL("/sitemap.xml", host);
+    let response = await fetch(url, { signal });
+    if (!response.ok) {
+      let error = new Error(
+        `GET ${url} ${response.status} ${response.statusText}`,
+      );
+      error.name = `SitemapError`;
+      throw error;
+    }
+    let text = await response.text();
+    let xml = parse(text, {
+      flatten: { attributes: false, empty: false, text: true },
+    }) as unknown as SitemapXML;
+
+    let urls = xml.urlset.url;
+
+    return Array.isArray(urls) ? urls : [urls];
+  });
 
   let downloader = yield* useDownloader({ host, outdir: dir });
 
   yield* call(() => ensureDir(dir));
 
-  for (let spec of sitemap.urls) {
-    downloader.download(spec.loc);
+  for (let url of urls) {
+    downloader.download(url.loc);
   }
 
-  tasks.push(
-    yield* spawn(function* () {
-      let xml = stringify({
-        urlset: {
-          "@xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
-          "urls": [...sitemap.urls].map((url) => ({
-            loc: { "#text": contextualize(url.loc, base).toString() },
-          })),
-        },
-      });
-      yield* call(() =>
-        Deno.writeFile(
-          join(dir, "sitemap.xml"),
-          new TextEncoder().encode(xml),
-        )
-      );
-    }),
-  );
+  let sitemap = yield* spawn(function* () {
+    let xml = stringify({
+      urlset: {
+        "@xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9",
+        "urls": urls.map((url) => {
+          let loc = new URL(url.loc);
+          loc.host = base.host;
+          loc.port = base.port;
+          loc.protocol = base.protocol;
+          return { loc: { "#text": loc } };
+        }),
+      },
+    });
+    yield* call(() =>
+      Deno.writeFile(
+        join(dir, "sitemap.xml"),
+        new TextEncoder().encode(xml),
+      )
+    );
+  });
 
+  yield* sitemap;
   yield* downloader;
-}
-
-function contextualize(location: string, base: URL): URL {
-  if (location.match(/^\w+:/)) {
-    return new URL(location);
-  } else {
-    let url = new URL(base.toString());
-    url.pathname = location;
-    return url;
-  }
 }
 
 interface Downloader extends Operation<void> {
@@ -89,14 +103,14 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
 
     let downloader: Downloader = {
       download(loc) {
-	if (seen.get(loc)) {
-	  return;
-	}
-	seen.set(loc, true);
-	if (loc.startsWith("//")) {
-	  return;
-	}
-        let source = contextualize(loc, host);
+        if (seen.get(loc)) {
+          return;
+        }
+        seen.set(loc, true);
+        if (loc.startsWith("//")) {
+          return;
+        }
+        let source = loc.match(/^\w+:/) ? new URL(loc) : new URL(loc, host);
         if (source.host !== host.host) {
           return;
         }
@@ -130,7 +144,7 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
                 for (let node of assets) {
                   let element = node as Element;
                   let src = element.getAttribute("src")!;
-                  downloader.download(src);
+                  downloader.download(src!);
                 }
 
                 yield* call(async () => {
@@ -164,4 +178,17 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
 
     yield* provide(downloader);
   });
+}
+
+interface SitemapURL {
+  loc: string;
+  lastmod?: string;
+  changefreq?: string;
+  priority?: string;
+}
+
+interface SitemapXML {
+  urlset: {
+    url: SitemapURL | SitemapURL[];
+  };
 }
