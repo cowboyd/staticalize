@@ -13,6 +13,7 @@ import { stringify } from "@libs/xml/stringify";
 import { DOMParser, Element } from "deno-dom";
 import { parse } from "@libs/xml/parse";
 import z from "npm:zod";
+import { useTaskBuffer } from "./task-buffer.ts";
 
 export interface StaticalizeOptions {
   host: URL;
@@ -54,7 +55,7 @@ export function* staticalize(options: StaticalizeOptions): Operation<void> {
   yield* call(() => ensureDir(dir));
 
   for (let url of urls) {
-    downloader.download(url.loc);
+    yield* downloader.download(url.loc);
   }
 
   let sitemap = yield* spawn(function* () {
@@ -83,7 +84,7 @@ export function* staticalize(options: StaticalizeOptions): Operation<void> {
 }
 
 interface Downloader extends Operation<void> {
-  download(spec: string): void;
+  download(spec: string, context?: URL): Operation<void>;
 }
 
 interface DownloaderOptions {
@@ -95,14 +96,13 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
   let seen = new Map<string, boolean>();
   return resource(function* (provide) {
     let { host, outdir } = opts;
-    let tasks: Task<void>[] = [];
 
-    let scope = yield* useScope();
+    let buffer = yield* useTaskBuffer(75);
 
     let signal = yield* useAbortSignal();
 
     let downloader: Downloader = {
-      download(loc) {
+      *download(loc, context = host) {
         if (seen.get(loc)) {
           return;
         }
@@ -110,7 +110,7 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
         if (loc.startsWith("//")) {
           return;
         }
-        let source = loc.match(/^\w+:/) ? new URL(loc) : new URL(loc, host);
+        let source = loc.match(/^\w+:/) ? new URL(loc) : new URL(loc, context);
         if (source.host !== host.host) {
           return;
         }
@@ -121,58 +121,53 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
             source.pathname === "/" ? "/index.html" : source.pathname,
           ),
         );
-        tasks.push(
-          scope.run(function* () {
-            let response = yield* call(() =>
-              fetch(source.toString(), { signal })
-            );
-            if (response.ok) {
-              if (response.headers.get("Content-Type")?.includes("html")) {
-                let content = yield* call(() => response.text());
-                let document = new DOMParser().parseFromString(
-                  content,
-                  "text/html",
-                );
-                let links = document.querySelectorAll("link[href]");
-                for (let node of links) {
-                  let link = node as Element;
-                  let href = link.getAttribute("href");
-                  downloader.download(href!);
-                }
-
-                let assets = document.querySelectorAll("[src]");
-                for (let node of assets) {
-                  let element = node as Element;
-                  let src = element.getAttribute("src")!;
-                  downloader.download(src!);
-                }
-
-                yield* call(async () => {
-                  let destdir = dirname(destpath);
-                  await ensureDir(destdir);
-                  await Deno.writeTextFile(destpath, content);
-                });
-              } else {
-                yield* call(async () => {
-                  let destdir = dirname(destpath);
-                  await ensureDir(destdir);
-                  await Deno.writeFile(destpath, response.body!);
-                });
-              }
-            } else {
-              throw new Error(
-                `GET ${source} ${response.status} ${response.statusText}`,
+        yield* buffer.spawn(function* () {
+          let response = yield* call(() =>
+            fetch(source.toString(), { signal })
+          );
+          if (response.ok) {
+            if (response.headers.get("Content-Type")?.includes("html")) {
+              let content = yield* call(() => response.text());
+              let document = new DOMParser().parseFromString(
+                content,
+                "text/html",
               );
+              let links = document.querySelectorAll("link[href]");
+
+              for (let node of links) {
+                let link = node as Element;
+                let href = link.getAttribute("href");
+                yield* downloader.download(href!, source);
+              }
+
+              let assets = document.querySelectorAll("[src]");
+              for (let node of assets) {
+                let element = node as Element;
+                let src = element.getAttribute("src")!;
+                yield* downloader.download(src!, source);
+              }
+
+              yield* call(async () => {
+                let destdir = dirname(destpath);
+                await ensureDir(destdir);
+                await Deno.writeTextFile(destpath, content);
+              });
+            } else {
+              yield* call(async () => {
+                let destdir = dirname(destpath);
+                await ensureDir(destdir);
+                await Deno.writeFile(destpath, response.body!);
+              });
             }
-          }),
-        );
+          } else {
+            throw new Error(
+              `GET ${source} ${response.status} ${response.statusText}`,
+            );
+          }
+        });
       },
       *[Symbol.iterator]() {
-        let task = tasks.pop();
-        while (task) {
-          yield* task;
-          task = tasks.pop();
-        }
+        yield* buffer;
       },
     };
 
