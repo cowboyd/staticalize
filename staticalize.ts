@@ -1,18 +1,9 @@
-import {
-  call,
-  Operation,
-  resource,
-  spawn,
-  Task,
-  useAbortSignal,
-  useScope,
-} from "effection";
+import { call, Operation, resource, spawn, useAbortSignal } from "effection";
 import { dirname, join, normalize } from "jsr:@std/path";
 import { ensureDir } from "@std/fs/ensure-dir";
 import { stringify } from "@libs/xml/stringify";
 import { DOMParser, Element } from "deno-dom";
 import { parse } from "@libs/xml/parse";
-import z from "npm:zod";
 import { useTaskBuffer } from "./task-buffer.ts";
 
 export interface StaticalizeOptions {

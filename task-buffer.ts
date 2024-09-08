@@ -1,6 +1,6 @@
 import {
   action,
-  createSignal,
+  createChannel,
   Err,
   Ok,
   Operation,
@@ -19,9 +19,9 @@ export interface TaskBuffer extends Operation<void> {
 
 export function useTaskBuffer(max: number): Operation<TaskBuffer> {
   return resource(function* (provide) {
-    let input = createSignal<SpawnRequest<unknown>, never>();
+    let input = createChannel<SpawnRequest<unknown>, never>();
 
-    let output = createSignal<Result<unknown>, never>();
+    let output = createChannel<Result<unknown>, never>();
 
     let buffer = new Set<Task<unknown>>();
 
@@ -33,14 +33,16 @@ export function useTaskBuffer(max: number): Operation<TaskBuffer> {
       while (true) {
         if (buffer.size < max) {
           let { value: request } = yield* requests.next();
+          //TODO: this is a bug in Effection.
+          // when an error occurs, this is still running.
           yield* sleep(0);
           let task = scope.run(request.operation);
           buffer.add(task);
           yield* spawn(function* () {
             try {
-              output.send(Ok(yield* task));
+              yield* output.send(Ok(yield* task));
             } catch (error) {
-              output.send(Err(error));
+              yield* output.send(Err(error));
             } finally {
               buffer.delete(task);
             }
@@ -62,7 +64,10 @@ export function useTaskBuffer(max: number): Operation<TaskBuffer> {
       },
       spawn: (operation) =>
         action(function* (resolve) {
-          input.send({ operation, resolve: resolve as Resolve<Task<unknown>> });
+          yield* input.send({
+            operation,
+            resolve: resolve as Resolve<Task<unknown>>,
+          });
         }),
     });
   });
