@@ -60,8 +60,8 @@ describe("staticalize", () => {
     await expect(content("test/dist/index.html")).resolves.toEqual(
       "<h1>Index</h1>",
     );
-    await expect(content("test/dist/about")).resolves.toEqual("<h1>About</h1>");
-    await expect(content("test/dist/contact")).resolves.toEqual(
+    await expect(content("test/dist/about/index.html")).resolves.toEqual("<h1>About</h1>");
+    await expect(content("test/dist/contact/index.html")).resolves.toEqual(
       "<h1>Contact</h1>",
     );
 
@@ -85,7 +85,7 @@ describe("staticalize", () => {
       host,
       dir: "test/dist",
     });
-    expect(content("test/dist/deeply/nested/page")).resolves.toEqual(
+    expect(content("test/dist/deeply/nested/page/index.html")).resolves.toEqual(
       "<h1>Nested</h1>",
     );
   });

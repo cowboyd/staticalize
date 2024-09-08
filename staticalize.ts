@@ -105,13 +105,14 @@ function useDownloader(opts: DownloaderOptions): Operation<Downloader> {
         if (source.host !== host.host) {
           return;
         }
+	let path = normalize(join(outdir, source.pathname));
+	
+	if (path.endsWith("/") || !path.match(/\.\w+/)) {
+	  path = join(path, "index.html");
+	}
 
-        let destpath = normalize(
-          join(
-            outdir,
-            source.pathname === "/" ? "/index.html" : source.pathname,
-          ),
-        );
+	let destpath = path.endsWith("/") || !path.match(/\.\w+/) ? join(path, "index.html") : path;
+
         yield* buffer.spawn(function* () {
           let response = yield* call(() =>
             fetch(source.toString(), { signal })
