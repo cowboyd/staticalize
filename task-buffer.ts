@@ -33,7 +33,7 @@ export function useTaskBuffer(max: number): Operation<TaskBuffer> {
       while (true) {
         if (buffer.size < max) {
           let { value: request } = yield* requests.next();
-          //TODO: this is a bug in Effection.
+          // TODO: this is a bug in Effection.
           // when an error occurs, this is still running.
           yield* sleep(0);
           let task = scope.run(request.operation);
